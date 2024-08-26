@@ -1,0 +1,139 @@
+.toggle-div{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 5em;
+}
+
+.label{
+    font-size: 1.5em;
+    font-weight: bolder;
+    margin-right: 0.5em;
+    /* color: blue */
+}
+
+/* Styles for the toggle switch */
+input[type=checkbox] {
+    height: 0;
+    width: 0;
+    visibility: hidden;
+}
+
+label {
+    cursor: pointer;
+    text-indent: -9999px;
+    width: 150px;
+    height: 60px;
+    background: grey;
+    display: block;
+    border-radius: 100px;
+    position: relative;
+}
+
+label:after {
+    content: "";
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    width: 70px;
+    height: 50px;
+    background: #fff;
+    border-radius: 90px;
+    transition: 0.3s;
+}
+
+input:checked + label {
+    background: #bada55;
+}
+
+input:checked + label:after {
+    left: calc(100% - 5px);
+    transform: translateX(-100%);
+}
+
+label:active:after {
+    width: 130px;
+}
+
+/* Styles for the controller */
+*{
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+.wrapper{
+    display: flex;
+    justify-content: center;
+}
+.container{
+    display: flex;
+    min-height: 100vh;
+    /*background-color: #7091E6;*/
+    background-color: #fafafa;
+    width: 1400px;
+}
+.device{
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+.device__header, .device__footer{
+    padding: 15px;
+    font-size: 24px;
+    text-align: center;
+    font-weight: bold;
+    background-color: #3D52A0;
+    color: #fafafa;
+}
+.device__body{
+    display: flex;
+    width: 100%;
+}
+.left-buttons, .right-buttons{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-around;
+    min-height: 500px;
+    width: 50%;
+}
+.btns{
+    border: none;
+    height: 90px;
+    width: 90px;
+    background: linear-gradient(145deg, #cacccf, #fff);
+    border-radius: 100%;
+    box-shadow: 9.91px 9.91px 15px #d9dade, -9.91px -9.91px 15px #fff;
+    cursor: pointer;
+}
+.device__circles{
+    display: flex;
+    justify-content: space-around;
+    width: 100%;
+    background-color: #fafafa;
+    padding: 20px 0px;
+}
+.device__circles button{
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    border: none;
+}
+.device__circles-1{
+    background-color: yellow;
+}
+.device__circles-2{
+    background-color: blue;
+}
+.device__circles-3{
+    background-color: red;
+}
+.device__circles-4{
+    background-color: orange;
+}
+.device__circles-5{
+    background-color: green;
+}
+.device__footer{
+    background-color: #3D52A0;
+}
