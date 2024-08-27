@@ -17,18 +17,25 @@ def render(work, cool):
                 <div class=\"device__header\">
                     Управление электрокамином
                 </div>
+                <label>Volume:</label>
+                <p id=\"volume\">0</p><br>
+                <label>Brightness:</label>
+                <p id=\"brightness\">0</p></br>
+                <label>Cooler:</label>
+                <p id=\"cLabel\">0</p><br>
                 <div class=\"device__body\">
                     <div class=\"left-buttons\">
-                        <div class=\"toggle-div\">
-                            <p class=\"label\">Вкл/выкл</p>
-                            <input type=\"checkbox\" id=\"power\" onclick=\"workSwitch()\" """
+                        <div class=\"left-slider\"><br>
+                            <label>Вкл/выкл</label><br>
+                            <label class=\"switch\">
+                                <input type=\"checkbox\" id=\"power\" onclick=\"workSwitch()\" """
     if work == 1:
         yield """ checked """
-    yield """/>
-                            <label for=\"power\">Toggle Power</label>
+    yield """>
+                                <span class=\"slider round\"></span>
+                            </label><br>
+                            <label></label>
                         </div>
-                        
-                    
                         <button class=\"btns\" id=\"soundp\" onclick=\"soundInc()\">
                             Звук+
                         </button>
@@ -36,23 +43,10 @@ def render(work, cool):
                             Яркость+
                         </button>
                     </div>
-                    
-                        <br>Volume: </br>
-                        <p id=\"volume\">0</p>
-                        <br>
-                        <br>Brightness: </br>
-                        <p id=\"brightness\">0</p>
-                        
-                        
                     <div class=\"right-buttons\">
-                        <div class=\"toggle-div\">
-                            <p class=\"label\">Кулер</p>
-                            <input type=\"checkbox\" id=\"cooler\" onclick=\"coolerSwitch()\" """
-    if cool == 1:
-        yield """ checked """
-    yield """/>
-                            <label for=\"cooler\">Toggle Cooler</label>
-                        </div>
+                        <button class=\"btns\" id=\"cooler\" onclick=\"coolerInc()\">
+                            Кулер
+                        </button>
                         <button class=\"btns\" id=\"soundm\" onclick=\"soundDecr()\">
                             Звук-
                         </button>

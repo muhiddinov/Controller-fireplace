@@ -7,7 +7,7 @@ Response.default_content_type = 'text/html'
 
 # Our GPIO Module
 power = GPIOModule(23)   # Вкл/выкл
-cooler = GPIOModule(22)  # Кулер
+cooler = PWMModule(22)   # Кулер
 volume = PWMModule(4)    # Звук
 brigtness = PWMModule(2) # Яркость
 
@@ -58,10 +58,11 @@ async def toggle_power(request):
     power.toggle()
     return "OK"
 
-@app.route('/toggleCooler')
-async def toggle_cooler(request):
-    print("Receive Cooler Toggle Request!")
-    cooler.toggle()
+@app.route('/cooler', methods=['GET'])
+async def set_cooler(request):
+    pwm_val = int(request.args['value'])
+    cooler.set_pwm(int(pwm_val/6*100))
+    print("Cooler:", cooler.get_value())
     return "OK"
 
 
