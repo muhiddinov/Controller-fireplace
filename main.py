@@ -3,6 +3,7 @@ from microdot_utemplate import render_template
 from gpio_module import GPIOModule, PWMModule
 
 app = Microdot()
+
 Response.default_content_type = 'text/html'
 
 # Our GPIO Module
@@ -16,6 +17,7 @@ blue = GPIOModule(26)    # LED Blue
 red = GPIOModule(27)     # LED Red
 orange = GPIOModule(32)  # LED Orange
 green = GPIOModule(33)   # LED Green
+
 
 
 @app.route('/', methods=['GET'])
