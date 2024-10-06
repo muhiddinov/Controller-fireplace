@@ -49,9 +49,6 @@ class ButtonIfaceThread(Thread):
         sleep(delay/1000)
         self._buzzer.set_value(0)
 
-    def setUpBtnPin(self, btnPin):
-        self.__upbtn_pin = btnPin
-
     def main(self):
         while True:
 
