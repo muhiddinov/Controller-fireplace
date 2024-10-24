@@ -1,9 +1,7 @@
 from microdot_asyncio import Microdot, Response, send_file
 from microdot_utemplate import render_template
 from gpio_module import GPIOModule, PWMModule
-from btn_iface import ButtonIfaceThread
 
-btnApp = ButtonIfaceThread()
 app = Microdot()
 
 Response.default_content_type = 'text/html'
@@ -97,5 +95,4 @@ def static(request, path):
         return 'Not found', 404
     return send_file('static/' + path)
 
-btnApp.run()
 app.run(debug=False, port=80)
