@@ -51,13 +51,17 @@ class ButtonIfaceThread(Thread):
     
     def __init__(self):
         Thread.__init__(self)
-        # RGB rangli chiroqlar uchun PWM pinlar
+        # RGB rangli chiroqlar uchun PWM chiquvchi pinlar
         self._redPWM = PWMModule(pinNumber=self._R_PIN, duty_max=255)
         self._greenPWM = PWMModule(pinNumber=self._G_PIN, duty_max=255)
         self._bluePWM = PWMModule(pinNumber=self._B_PIN, duty_max=255)
         
         # Diskret chiquvchi pinlar
         self._buzzer = GPIOModule(pinNumber=self._BUZZ_PIN)
+        self._pump1 = GPIOModule(pinNumber=self._PMP_PIN1)
+        self._pump2 = GPIOModule(pinNumber=self._PMP_PIN2)
+        self._pump3 = GPIOModule(pinNumber=self._PMP_PIN3)
+        self._pump4 = GPIOModule(pinNumber=self._PMP_PIN4)
         
         
         # Suv bachoklarini o'lchab turish uchun interrupt pinlar
@@ -85,7 +89,12 @@ class ButtonIfaceThread(Thread):
         btnPower.irq(trigger=Pin.IRQ_RISING, handler=self.btn_handle)
         btnFlame = Pin(self._BTN_FLM_PIN, Pin.IN, Pin.PULL_UP)
         btnFlame.irq(trigger=Pin.IRQ_RISING, handler=self.btn_handle)
+        
+        self._mode = Pin(self._MODE_PIN, Pin.IN, Pin.PULL_UP)
+        self._mode.irq(trigger=Pin.IRQ_RISING | Pin.IRQ_FALLING, handler=self.mode_handle)
 
+    def mode_handle(self, pin):
+        self.work_mode = self._mode.value()
     
     def lvl_handle(self, pin):
         print('Callback from: Pin-', pin)
