@@ -93,9 +93,12 @@ class ButtonIfaceThread(Thread):
         self._mode = Pin(self._MODE_PIN, Pin.IN, Pin.PULL_UP)
         self._mode.irq(trigger=Pin.IRQ_RISING | Pin.IRQ_FALLING, handler=self.mode_handle)
 
+<<<<<<< HEAD
     def getWorkStatus(self) -> bool:
         return False
 
+=======
+>>>>>>> 7a7ee40fb8c7c4877561a78b159fe4f4c03e4ee4
     def mode_handle(self, pin):
         self.work_mode = self._mode.value()
     

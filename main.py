@@ -8,7 +8,10 @@ Response.default_content_type = 'text/html'
 
 @app.route('/', methods=['GET'])
 async def index(request):
+<<<<<<< HEAD
     
+=======
+>>>>>>> 7a7ee40fb8c7c4877561a78b159fe4f4c03e4ee4
     return render_template('index.html', work=False)
 
 @app.route('/yellow')
