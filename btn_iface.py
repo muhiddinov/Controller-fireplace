@@ -2,6 +2,7 @@ from threading import Thread
 import asyncio
 from gpio_module import PWMModule, GPIOModule
 from time import sleep
+from machine import Pin
 
 class ButtonIfaceThread(Thread):
     __rgb_data = {
@@ -10,6 +11,10 @@ class ButtonIfaceThread(Thread):
         'red': [255, 0, 0],
         'blue': [0, 0, 255],
         'green': [0, 255, 0],
+    }
+    __fuelBox = {
+        'fuel1': 0, # {0 - 1 - 2}
+        'fuel2': 0  # {0 - 1 - 2}
     }
 
     _R_PIN = 16
@@ -46,15 +51,60 @@ class ButtonIfaceThread(Thread):
     
     def __init__(self):
         Thread.__init__(self)
+        # RGB rangli chiroqlar uchun PWM pinlar
         self._redPWM = PWMModule(pinNumber=self._R_PIN, duty_max=255)
         self._greenPWM = PWMModule(pinNumber=self._G_PIN, duty_max=255)
         self._bluePWM = PWMModule(pinNumber=self._B_PIN, duty_max=255)
+        
+        # Diskret chiquvchi pinlar
         self._buzzer = GPIOModule(pinNumber=self._BUZZ_PIN)
+        
+        
+        # Suv bachoklarini o'lchab turish uchun interrupt pinlar
+        lvl11 = Pin(self._LVL11_PIN, Pin.IN, Pin.PULL_UP)
+        lvl11.irq(trigger=Pin.IRQ_RISING, handler=self.lvl_handle)
+        lvl12 = Pin(self._LVL12_PIN, Pin.IN, Pin.PULL_UP)
+        lvl12.irq(trigger=Pin.IRQ_RISING, handler=self.lvl_handle)
+        lvl13 = Pin(self._LVL13_PIN, Pin.IN, Pin.PULL_UP)
+        lvl13.irq(trigger=Pin.IRQ_RISING, handler=self.lvl_handle)
+        lvl21 = Pin(self._LVL21_PIN, Pin.IN, Pin.PULL_UP)
+        lvl21.irq(trigger=Pin.IRQ_RISING, handler=self.lvl_handle)
+        lvl22 = Pin(self._LVL22_PIN, Pin.IN, Pin.PULL_UP)
+        lvl22.irq(trigger=Pin.IRQ_RISING, handler=self.lvl_handle)
+        lvl23 = Pin(self._LVL23_PIN, Pin.IN, Pin.PULL_UP)
+        lvl23.irq(trigger=Pin.IRQ_RISING, handler=self.lvl_handle)
+        
+        # Buttonlar orqali boshqarish uchun interrupt pinlar
+        btnWtrOut = Pin(self._BTN_WTROUT_PIN, Pin.IN, Pin.PULL_UP)
+        btnWtrOut.irq(trigger=Pin.IRQ_RISING, handler=self.btn_handle)
+        btnWtrIn = Pin(self._BTN_WTRIN_PIN, Pin.IN, Pin.PULL_UP)
+        btnWtrIn.irq(trigger=Pin.IRQ_RISING, handler=self.btn_handle)
+        btnLed = Pin(self._BTN_LED_PIN, Pin.IN, Pin.PULL_UP)
+        btnLed.irq(trigger=Pin.IRQ_RISING, handler=self.btn_handle)
+        btnPower = Pin(self._BTN_PWR_PIN, Pin.IN, Pin.PULL_UP)
+        btnPower.irq(trigger=Pin.IRQ_RISING, handler=self.btn_handle)
+        btnFlame = Pin(self._BTN_FLM_PIN, Pin.IN, Pin.PULL_UP)
+        btnFlame.irq(trigger=Pin.IRQ_RISING, handler=self.btn_handle)
+
     
-    btn_wtrout_clicked = False
-    
-    def btn_wtrout_handle(self, pin):
-        self.btn_wtrout_clicked = True
+    def lvl_handle(self, pin):
+        print('Callback from: Pin-', pin)
+        if pin == self._LVL11_PIN:
+            self.__fuelBox['fuel1'] = 2
+        elif pin == self._LVL12_PIN:
+            self.__fuelBox['fuel1'] = 1
+        elif pin == self._LVL13_PIN:
+            self.__fuelBox['fuel1'] = 0
+        elif pin == self._LVL21_PIN:
+            self.__fuelBox['fuel2'] = 2
+        elif pin == self._LVL22_PIN:
+            self.__fuelBox['fuel2'] = 1
+        elif pin == self._LVL23_PIN:
+            self.__fuelBox['fuel2'] = 0
+        
+        
+    def btn_handle(self, pin):
+        asyncio.run(self.buzzerBeep(100))
 
     def setColorToPWM(self, color: str):
         try:
@@ -82,6 +132,4 @@ class ButtonIfaceThread(Thread):
 
     def main(self):
         while True:
-            print('Buzzer run')
-            asyncio.run(self.buzzerBeep(200))
-            sleep(0.1)
+            pass
