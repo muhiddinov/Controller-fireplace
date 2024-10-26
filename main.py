@@ -1,6 +1,9 @@
 from microdot_asyncio import Microdot, Response, send_file
 from microdot_utemplate import render_template
 from gpio_module import GPIOModule, PWMModule
+from btn_iface import ButtonIfaceThread
+
+appIFace = ButtonIfaceThread()
 
 app = Microdot()
 
@@ -8,56 +11,59 @@ Response.default_content_type = 'text/html'
 
 @app.route('/', methods=['GET'])
 async def index(request):
-<<<<<<< HEAD
-    
-=======
->>>>>>> 7a7ee40fb8c7c4877561a78b159fe4f4c03e4ee4
-    return render_template('index.html', work=False)
+    return render_template('index.html', work=appIFace.start())
 
 @app.route('/yellow')
-async def toggle_power(request):
-    print("Receive Yellow Toggle Request!")
+async def toggle_yellow(request):
+    appIFace.setColorToPWM('yellow')
     return "OK"
 
 @app.route('/blue')
-async def toggle_power(request):
-    print("Receive Blue Toggle Request!")
+async def toggle_blue(request):
+    appIFace.setColorToPWM('blue')
     return "OK"
 
 @app.route('/red')
-async def toggle_power(request):
-    print("Receive Red Toggle Request!")
+async def toggle_red(request):
+    appIFace.setColorToPWM('red')
     return "OK"
 
 @app.route('/orange')
-async def toggle_power(request):
-    print("Receive Orange Toggle Request!")
+async def toggle_orange(request):
+    appIFace.setColorToPWM('orange')
     return "OK"
 
 @app.route('/green')
-async def toggle_power(request):
-    print("Receive Green Toggle Request!")
+async def toggle_green(request):
+    appIFace.setColorToPWM('green')
     return "OK"
 
-@app.route('/togglePower')
+@app.route('/work')
 async def toggle_power(request):
-    print("Receive Power Toggle Request!")
+    state = request.args['value']
+    if state == 'true':
+        appIFace.start(1)
+    else:
+        appIFace.start(0)
     return "OK"
 
 @app.route('/cooler', methods=['GET'])
 async def set_cooler(request):
     pwm_val = int(request.args['value'])
+    appIFace.coolerSpeed(pwm_val)
     return "OK"
 
 
 @app.route('/volume', methods=['GET'])
 async def set_volume(request):
     pwm_val = int(request.args['value'])
+    appIFace.volume(pwm_val)
     return "OK"
 
 @app.route('/brigtness', methods=['GET'])
 async def set_brigtness(request):
     pwm_val = int(request.args['value'])
+    appIFace.brighness(pwm_val)
     return "OK"
 
 @app.route('/shutdown')
@@ -72,4 +78,5 @@ def static(request, path):
         return 'Not found', 404
     return send_file('static/' + path)
 
+appIFace.run()
 app.run(debug=False, port=80)

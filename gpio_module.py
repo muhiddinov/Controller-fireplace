@@ -1,7 +1,6 @@
 from machine import PWM, Pin
 
 class GPIOModule:
-    
     def __init__(self, pinNumber):
         self.pinNumber = pinNumber
         self.gpio_pin = Pin(self.pinNumber, Pin.OUT)
@@ -15,14 +14,6 @@ class GPIOModule:
     def set_value(self, state: bool):
         self.gpio_pin.value(state)
 
-class GPIOReadModule:
-    def __init__(self, pinNumber) -> None:
-        self.pinNumber = pinNumber
-        self.gpio_pin = Pin(self.pinNumber, Pin.IN, Pin.PULL_UP)
-    
-    def get_value(self):
-        return self.gpio_pin.value()
-        
 class PWMModule:
     def __init__(self, pinNumber, freq=5000, duty_attr=65535, duty_max=100):
         self.pwm = PWM(Pin(pinNumber, Pin.OUT), freq)
