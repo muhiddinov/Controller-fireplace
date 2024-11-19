@@ -15,27 +15,27 @@ async def index(request):
 
 @app.route('/yellow')
 async def toggle_yellow(request):
-    appIFace.setColorToPWM('yellow')
+    appIFace.setColorToRGB('yellow')
     return "OK"
 
 @app.route('/blue')
 async def toggle_blue(request):
-    appIFace.setColorToPWM('blue')
+    appIFace.setColorToRGB('blue')
     return "OK"
 
 @app.route('/red')
 async def toggle_red(request):
-    appIFace.setColorToPWM('red')
+    appIFace.setColorToRGB('red')
     return "OK"
 
 @app.route('/orange')
 async def toggle_orange(request):
-    appIFace.setColorToPWM('orange')
+    appIFace.setColorToRGB('orange')
     return "OK"
 
 @app.route('/green')
 async def toggle_green(request):
-    appIFace.setColorToPWM('green')
+    appIFace.setColorToRGB('green')
     return "OK"
 
 @app.route('/work')
@@ -50,7 +50,8 @@ async def toggle_power(request):
 @app.route('/cooler', methods=['GET'])
 async def set_cooler(request):
     pwm_val = int(request.args['value'])
-    appIFace.coolerSpeed(pwm_val)
+#     appIFace.coolerSpeed(pwm_val)
+    appIFace.coolerSpeedInc()
     return "OK"
 
 
@@ -69,8 +70,8 @@ async def set_brigtness(request):
 @app.route('/shutdown')
 async def shutdown(request):
     request.app.shutdown()
+    appIFace.shutdown()
     return 'The server is shutting down...'
-
 
 @app.route('/static/<path:path>')
 def static(request, path):

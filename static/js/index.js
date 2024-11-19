@@ -1,16 +1,15 @@
-var kvolume = 0, kcooler = 0, kbrightness = 0;
+var kvolume = 15, kcooler = 4, kbrightness = 50;
 
 function workSwitch(e) {
   var switchButton = document.getElementById("power");
+  var checkButton = false;
   if (switchButton.checked) {
+    checkButton = true
     console.log("On!");
   } else {
     console.log("Off!");
   }
-  fetch( '/togglePower')
-  .then( response => {
-    console.log(response);
-  } )
+  fetch('/work?' + new URLSearchParams({value: checkButton}).toString()).then( response => { console.log(response); } )
 }
 function coolerInc(e) {
     kcooler = kcooler + 1;
@@ -20,21 +19,20 @@ function coolerInc(e) {
 }
 function soundDecr(e) {
     if (kvolume > 0) {
-        kvolume = kvolume - 10;
+        kvolume = kvolume - 1;
     }
     console.log(kvolume);
     fetch('/volume?' + new URLSearchParams({value: kvolume}).toString()).then( response => { console.log(response); } )
 }
 function soundInc(e) {
-    var pVol = parseInt(document.getElementById("volume").innerHTML, 10);
-    if (kvolume < 100) {
-        kvolume = kvolume + 10;
+    if (kvolume < 30) {
+        kvolume = kvolume + 1;
     }
     console.log(kvolume);
     fetch('/volume?' + new URLSearchParams({value: kvolume}).toString()).then( response => { console.log(response); } )
 }
 function brightDecr(e) {
-    if (kbrightness > 0) {
+    if (kbrightness > 20) {
         kbrightness = kbrightness - 10;
     }
     console.log(kbrightness);
@@ -43,7 +41,7 @@ function brightDecr(e) {
 
 function brightInc(e) {
     if (kbrightness < 100) {
-        kbrightness = pVkbrightnessol + 10;
+        kbrightness = kbrightness + 10;
     }
     console.log(kbrightness);
     fetch('/brigtness?' + new URLSearchParams({value: kbrightness}).toString()).then( response => { console.log(response); } )

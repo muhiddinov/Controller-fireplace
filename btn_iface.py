@@ -4,6 +4,8 @@ from time import sleep
 from machine import Pin
 import _thread
 from dfplayer import DFPlayer
+from utime import sleep_ms, ticks_ms
+#from ButtonDebounce import Debounce
 
 """ SD media card tree
 .
@@ -33,11 +35,8 @@ class ButtonIfaceThread():
         'green': [0, 255, 0],
     }
     __rgb_colors = list(__rgb_data.keys())
-    __fuelBox = {
-        'fuel1': 0, # {0 - 1 - 2}
-        'fuel2': 0  # {0 - 1 - 2}
-    }
-
+    _LEN_COLOR = len(__rgb_colors)
+    
     _R_PIN = 16
     _B_PIN = 3
     _G_PIN = 8
@@ -68,7 +67,8 @@ class ButtonIfaceThread():
     _LVL22_PIN = 12
     _LVL23_PIN = 13
     _COOL_PIN = 14
-    
+    _volume_1_level:list(bool) = []
+    _volume_2_level:list(bool) = []
     _cooler_speed: int = 0  # [0 - 100]%
     _volume: int = 15       # [0 -  30]D
     _brightness: int = 50   # [0 - 100]%
@@ -76,15 +76,18 @@ class ButtonIfaceThread():
     _change_color: int = 0  # [0 - 5]
     _charge_water: bool = False
     _discharge_water: bool = False
+    _last_color = []
+    _mode = False
+    DEBOUNCE_TIME = 500
+    LEVEL_DEBOUNCE_TIME = 10000
     
     def __init__(self):
         self._dfplayer = DFPlayer(uart_id = 1, tx_pin_id = self._TXPIN, rx_pin_id = self._RXPIN)
-        
         # RGB rangli chiroqlar uchun PWM chiquvchi pinlar
-        self._redPWM = PWMModule(pinNumber=self._R_PIN, duty_max=255)
-        self._greenPWM = PWMModule(pinNumber=self._G_PIN, duty_max=255)
-        self._bluePWM = PWMModule(pinNumber=self._B_PIN, duty_max=255)
-        self._coolerPWM = PWMModule(pinNumber=self._COOL_PIN, duty_max=6)
+        self._redPWM = PWMModule(pinNumber=self._R_PIN, freq=1000, duty_max=255)
+        self._greenPWM = PWMModule(pinNumber=self._G_PIN, freq=1000, duty_max=255)
+        self._bluePWM = PWMModule(pinNumber=self._B_PIN, freq=1000, duty_max=255) # led uchun chastota 1000 bo'lishi kerak
+        self._coolerPWM = PWMModule(pinNumber=self._COOL_PIN, freq=50, duty_max=6) # matorlar uchun chastota 50 ham bo'ladi
         
         # Diskret chiquvchi pinlar
         self._buzzer = GPIOModule(pinNumber=self._BUZZ_PIN)
@@ -93,44 +96,117 @@ class ButtonIfaceThread():
         self._pump3 = GPIOModule(pinNumber=self._PMP_PIN3)
         self._pump4 = GPIOModule(pinNumber=self._PMP_PIN4)
         self._start = GPIOModule(pinNumber=self._START_PIN)
+        
+        #initializing values
+        self._pump1.set_value(0)
+        self._pump2.set_value(0)
+        self._pump3.set_value(0)
+        self._pump4.set_value(0)
         self._start.set_value(0)
+        self.notice_charge_water = False
+        self._brightness = 50
+        self._last_color = self.setColorToRGB('orange')
+        self._module_enable = False
+        self._cooler_speed = 3
+        self.running = True
         
         # Suv bachoklarini o'lchab turish uchun interrupt pinlar
         self.lvl11 = Pin(self._LVL11_PIN, Pin.IN, Pin.PULL_UP)
-        self.lvl11.irq(trigger=Pin.IRQ_FALLING, handler=self.lvl_handle)
         self.lvl12 = Pin(self._LVL12_PIN, Pin.IN, Pin.PULL_UP)
-        self.lvl12.irq(trigger=Pin.IRQ_FALLING, handler=self.lvl_handle)
         self.lvl13 = Pin(self._LVL13_PIN, Pin.IN, Pin.PULL_UP)
-        self.lvl13.irq(trigger=Pin.IRQ_FALLING, handler=self.lvl_handle)
         self.lvl21 = Pin(self._LVL21_PIN, Pin.IN, Pin.PULL_UP)
-        self.lvl21.irq(trigger=Pin.IRQ_FALLING, handler=self.lvl_handle)
         self.lvl22 = Pin(self._LVL22_PIN, Pin.IN, Pin.PULL_UP)
-        self.lvl22.irq(trigger=Pin.IRQ_FALLING, handler=self.lvl_handle)
         self.lvl23 = Pin(self._LVL23_PIN, Pin.IN, Pin.PULL_UP)
-        self.lvl23.irq(trigger=Pin.IRQ_FALLING, handler=self.lvl_handle)
+        self._volume_1_level = [self.lvl11.value(), self.lvl12.value(), self.lvl13.value()]
+        self._volume_2_level = [self.lvl21.value(), self.lvl22.value(), self.lvl23.value()]
+        self._volume_1_level = [not x for x in self._volume_1_level]
+        self._volume_2_level = [not x for x in self._volume_2_level]
+        
         
         # Buttonlar orqali boshqarish uchun interrupt pinlar
-        btnWtrOut = Pin(self._BTN_WTROUT_PIN, Pin.IN, Pin.PULL_UP)
-        btnWtrOut.irq(trigger=Pin.IRQ_FALLING, handler=self.btn_handle)
-        btnWtrIn = Pin(self._BTN_WTRIN_PIN, Pin.IN, Pin.PULL_UP)
-        btnWtrIn.irq(trigger=Pin.IRQ_FALLING, handler=self.btn_handle)
-        btnLed = Pin(self._BTN_LED_PIN, Pin.IN, Pin.PULL_UP)
-        btnLed.irq(trigger=Pin.IRQ_FALLING, handler=self.btn_handle)
-        btnPower = Pin(self._BTN_PWR_PIN, Pin.IN, Pin.PULL_UP)
-        btnPower.irq(trigger=Pin.IRQ_FALLING, handler=self.btn_handle)
-        btnFlame = Pin(self._BTN_FLM_PIN, Pin.IN, Pin.PULL_UP)
-        btnFlame.irq(trigger=Pin.IRQ_FALLING, handler=self.btn_handle)
+        self.btnWtrOut = Pin(self._BTN_WTROUT_PIN, Pin.IN, Pin.PULL_UP)
+        self.btnWtrOut.irq(trigger=Pin.IRQ_FALLING | Pin.IRQ_RISING, handler=self.btn_handle)
+        self.btnWtrIn = Pin(self._BTN_WTRIN_PIN, Pin.IN, Pin.PULL_UP)
+        self.btnWtrIn.irq(trigger=Pin.IRQ_FALLING | Pin.IRQ_RISING, handler=self.btn_handle)
+        self.btnLed = Pin(self._BTN_LED_PIN, Pin.IN, Pin.PULL_UP)
+        self.btnLed.irq(trigger=Pin.IRQ_FALLING | Pin.IRQ_RISING, handler=self.btn_handle)
+        self.btnPower = Pin(self._BTN_PWR_PIN, Pin.IN, Pin.PULL_UP)
+        self.btnPower.irq(trigger=Pin.IRQ_FALLING | Pin.IRQ_RISING, handler=self.btn_handle)
+        self.btnFlame = Pin(self._BTN_FLM_PIN, Pin.IN, Pin.PULL_UP)
+        self.btnFlame.irq(trigger=Pin.IRQ_FALLING | Pin.IRQ_RISING, handler=self.btn_handle)
+        self.btnMode = Pin(self._MODE_PIN, Pin.IN, Pin.PULL_UP)
+        self.btnMode.irq(trigger=Pin.IRQ_FALLING | Pin.IRQ_RISING, handler=self.btn_handle)
+        self.buttons_state = {
+                self.btnWtrIn: [self.btnWtrIn.value(), ticks_ms()],
+                self.btnWtrOut: [self.btnWtrOut.value(), ticks_ms()],
+                self.btnLed: [self.btnLed.value(), ticks_ms()],
+                self.btnPower: [self.btnPower.value(), ticks_ms()],
+                self.btnFlame: [self.btnFlame.value(), ticks_ms()],
+                self.btnMode: [self.btnMode.value(), ticks_ms()]
+            }
+    
+    
+    def btn_handle(self, pin):
+        check_pin = False
+        last_value = self.buttons_state[pin][0]
+        if pin.value() != last_value:
+            #change state
+            last_change_time = self.buttons_state[pin][1]
+            if ticks_ms() - last_change_time > self.DEBOUNCE_TIME:
+                if pin.value() == False: #check only pressed
+                    check_pin = True
+            self.buttons_state[pin] = [pin.value(), ticks_ms()] #last changed time
+        if check_pin == True:
+            asyncio.run(self.buzzerBeep(100))
+            if pin == self.btnFlame:
+                self._cooler_speed += 1
+                print("Cooler Speed:", self._cooler_speed)
+                if self._cooler_speed > 6:
+                    self._cooler_speed = 1
+                    
+            elif pin == self.btnLed:
+                self._change_color += 1
+                if self._change_color > self._LEN_COLOR:
+                    self._change_color = 0
+                self._last_color = self.setColorToRGB(self.__rgb_colors[self._change_color])
+                    
+            elif pin == self.btnPower:
+                self._modul_enable = not self._modul_enable
+                self._start.set_value(self._modul_enable)
+                print('Power enable:', self._modul_enable)
+                
+            elif pin == self.btnWtrIn:
+                self._charge_water = not self._charge_water
+                print("Charge water:", self._charge_water)
+                
+            elif pin == self.btnWtrOut:
+                self._discharge_water = not self._discharge_water
+                print("Discharge water:", self._discharge_water)
+            
+            elif pin == self.btnMode:
+                self._mode = not self._mode
+                print("Mode:", self._mode)
+                    
+            else:
+                pass
         
-        self._mode = Pin(self._MODE_PIN, Pin.IN, Pin.PULL_UP)
-        self._mode.irq(trigger=Pin.IRQ_FALLING, handler=self.mode_handle)
-
     def coolerSpeed(self, speed: int | None = None) -> int:
         print('Set fan speed:', speed)
         if speed == None:
             return self._cooler_speed
         else:
             self._cooler_speed = speed
+            if self._modul_enable == True:
+                self._coolerPWM.set_pwm(speed)
+            else:
+                self._coolerPWM.set_pwm(0)
             return speed
+        
+    def coolerSpeedInc(self) -> None:
+        self._cooler_speed += 1
+        if self._cooler_speed > 6:
+            self._cooler_speed = 1
+        print('Cooler Speed:', self._cooler_speed)
     
     def brighness(self, scale: int | None = None) -> int:
         print('Set brightness:', scale)
@@ -138,6 +214,10 @@ class ButtonIfaceThread():
             return self._brightness
         else:
             self._brightness = scale
+            if self._brightness <= 10:
+                self._brightness = 10
+            if self._brightness > 100:
+                self._brightness = 100
             return scale
     
     def volume(self, vol: int | None = None) -> int:
@@ -153,75 +233,35 @@ class ButtonIfaceThread():
         if state == None:
             return self._start.get_value()
         else:
-            return self._start.set_value(state)
-    
-    def mode_handle(self, pin) -> None:
-        self.work_mode = not self.work_mode
-    
-    def lvl_handle(self, pin) -> None:
-        print('Callback from: Pin-', pin)
-        if pin == self._LVL11_PIN:
-            self.__fuelBox['fuel1'] = 2
-            self._charge_water = False
-        elif pin == self._LVL12_PIN:
-            self.__fuelBox['fuel1'] = 1
-        elif pin == self._LVL13_PIN:
-            self.__fuelBox['fuel1'] = 0
-            self._charge_water = True
-        elif pin == self._LVL21_PIN:
-            self.__fuelBox['fuel2'] = 2
-            self._charge_water = False
-        elif pin == self._LVL22_PIN:
-            self.__fuelBox['fuel2'] = 1
-        elif pin == self._LVL23_PIN:
-            self.__fuelBox['fuel2'] = 0
-            self._charge_water = True
-        
-        
-    def btn_handle(self, pin):
-        asyncio.run(self.buzzerBeep(100))
-        if pin == self._BTN_FLM_PIN:
-            self._cooler_speed += 1
-            if self._cooler_speed > 6:
-                self._cooler_speed = 0
-                
-        elif pin == self._BTN_LED_PIN:
-            self._change_color += 1
-            self.setColorToPWM(self.__rgb_colors[self._change_color])
-            if self._change_color > len(self.__rgb_colors):
-                self._change_color = 0
-                
-        elif pin == self._BTN_PWR_PIN:
-            self._modul_enable = not self._modul_enable
+            print('Power enable:', state)
+            self._modul_enable = state
+            self._start.set_value(state)
+            if state == True:
+                self._dfplayer.play(folder = 1, file = 1) # Music start
+            else:
+                self._dfplayer.stop()
+            return self._modul_enable
+
             
-        elif pin == self._BTN_WTRIN_PIN:
-            self._charge_water = not self._charge_water
-            
-        elif pin == self._BTN_WTROUT_PIN:
-            self._discharge_water = not self._discharge_water
-            
-        else:
-            pass
-            
-    def setColorToPWM(self, color: str) -> None:
+    def setColorToRGB(self, color: str) -> None:
         try:
+            print('Change color:', color)
             (r, g, b) = self.__rgb_data[color]
-            scale_factor = 100 / self._brightness
-            r *= scale_factor
-            g *= scale_factor
-            b *= scale_factor
-            self._redPWM.set_pwm(r)
-            self._greenPWM.set_pwm(g)
-            self._bluePWM.set_pwm(b)
-            print('Color:', color)
+            self._last_color = [r, g, b]
+            return [r, g, b]
         except KeyError:
-            print('Color not found!')
+            return None
         
 
-    def setRGB2PWM(self, red, green, blue):
-        self._redPWM.set_pwm(red)
-        self._greenPWM.set_pwm(green)
-        self._bluePWM.set_pwm(blue)
+    def setRGB2PWM(self, rgb):
+        [r, g, b] = rgb
+        scale_factor = self._brightness / 100
+        r *= scale_factor
+        g *= scale_factor
+        b *= scale_factor
+        self._redPWM.set_pwm(r)
+        self._greenPWM.set_pwm(g)
+        self._bluePWM.set_pwm(b)
 
         
     async def buzzerBeep(self, delay: int):
@@ -231,67 +271,71 @@ class ButtonIfaceThread():
     
     def run(self):
         _thread.start_new_thread(self.__main__, ())
-        
+
+    def shutdown(self):
+        self.running = False
+    
     def __main__ (self):
-        while True:
-            try:
+        notice_timeout = ticks_ms()
+        try:
+            while self.running:
+                self._volume_1_level = [self.lvl11.value(), self.lvl12.value(), self.lvl13.value()]
+                self._volume_2_level = [self.lvl21.value(), self.lvl22.value(), self.lvl23.value()]
+                self._volume_1_level = [not x for x in self._volume_1_level]
+                self._volume_2_level = [not x for x in self._volume_2_level]
+                sum_level1 = sum(self._volume_1_level)
+                sum_level2 = sum(self._volume_2_level)
+                
+                if sum_level1 == 3:
+                    self._pump1.set_value(False)
+                    self._pump2.set_value(False)
+                    self._charge_water = False
+                    
+                if sum_level2 == 3:
+                    self._pump3.set_value(False)
+                    self._pump4.set_value(False)
+                    self._charge_water = False
+                
+                if sum_level1 < 3:
+                    self._pump1.set_value(self._charge_water)
+                    self._pump2.set_value(False)
+                if self._mode == True and sum_level2 < 3:
+                    self._pump3.set_value(self._charge_water)
+                    self._pump4.set_value(False)
+                
+                if sum_level1 > 0:
+                    self._pump1.set_value(False)
+                    self._pump2.set_value(self._discharge_water)
+                if self._mode == True and sum_level2 > 0:
+                    self._pump3.set_value(False)
+                    self._pump4.set_value(self._discharge_water)
+                
+                if self._mode == True:
+                    if sum(self._volume_1_level) == 0 or sum(self._volume_2_level) == 0:
+                        self.notice_charge_water = True
+                    else:
+                        self.notice_charge_water = False
+                else:
+                    if sum(self._volume_1_level) == 0:
+                        self.notice_charge_water = True
+                    else:
+                        self.notice_charge_water = False
+                        
                 if self._modul_enable == True:
-                    if self._charge_water == True:
-                        if self._mode == True:
-                            self._pump1.value(1)
-                            self._pump2.value(0)
-                            self._pump3.value(1)
-                            self._pump4.value(0)
-                        else:
-                            self._pump1.value(1)
-                            self._pump2.value(0)
-                    else:
-                        if self._mode == True:
-                            self._pump1.value(0)
-                            self._pump2.value(0)
-                            self._pump3.value(0)
-                            self._pump4.value(0)
-                        else:
-                            self._pump1.value(0)
-                            self._pump2.value(0)
-                    
-                    if self._discharge_water == True:
-                        if self._mode == True:
-                            self._pump1.value(0)
-                            self._pump2.value(1)
-                            self._pump3.value(0)
-                            self._pump4.value(1)
-                        else:
-                            self._pump1.value(0)
-                            self._pump2.value(1)
-                    else:
-                        if self._mode == True:
-                            self._pump1.value(0)
-                            self._pump2.value(0)
-                            self._pump3.value(0)
-                            self._pump4.value(0)
-                        else:
-                            self._pump1.value(0)
-                            self._pump2.value(0)
-                    
-                           
-                    if self._start.get_value() == 1:
-                        if self._dfplayer.is_playing():
-                            self._dfplayer.stop()
-                        self._dfplayer.play(folder = 0, file = 0)
-                    else:
-                        self._dfplayer.stop()
-                    if self._start.get_value() == True:
-                        self._coolerPWM.set_pwm(self._cooler_speed)
-                        if ((self.lvl11.value() == False and self.lvl12.value() == False and self.lvl13.value() == False) or
-                            (self.lvl21.value() == False and self.lvl22.value() == False and self.lvl23.valure() == False)):
+                    self.setRGB2PWM(self._last_color)
+                    self._coolerPWM.set_pwm(self._cooler_speed)
+                    if self.notice_charge_water:
+                        if ticks_ms() - notice_timeout > 30000: # har 30 sekundda
+                            print('Please! Charge volume of water!!!')
                             if self._dfplayer.is_playing() is True:
                                 self._dfplayer.stop()
-                                self._dfplayer.play(folder = 0, file = 1) # Suv tugaganda to'ldirish uchun ovozli bildirishnoma
+                            self._dfplayer.play(folder = 1, file = 2) # Suv tugaganda to'ldirish uchun ovozli bildirishnoma
+                            notice_timeout = ticks_ms()
                 else:
-                    self._dfplayer.stop()
-                    self._start.set_value(0)
-            except KeyboardInterrupt:
-                print('Breaked threading!')
-                break
-            sleep(0.1)
+                    self._coolerPWM.set_pwm(0)
+                    self.setRGB2PWM([0, 0, 0])
+                sleep(0.1)
+        except KeyboardInterrupt:
+            print('Exit threading!')
+            running = False
+
