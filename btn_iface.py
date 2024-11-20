@@ -286,40 +286,31 @@ class ButtonIfaceThread():
                 sum_level1 = sum(self._volume_1_level)
                 sum_level2 = sum(self._volume_2_level)
                 
-                if sum_level1 == 3:
-                    self._pump1.set_value(False)
-                    self._pump2.set_value(False)
-                    self._charge_water = False
-                    
-                if sum_level2 == 3:
-                    self._pump3.set_value(False)
-                    self._pump4.set_value(False)
-                    self._charge_water = False
-                
-                if sum_level1 < 3:
-                    self._pump1.set_value(self._charge_water)
-                    self._pump2.set_value(False)
-                if self._mode == True and sum_level2 < 3:
-                    self._pump3.set_value(self._charge_water)
-                    self._pump4.set_value(False)
-                
-                if sum_level1 > 0:
-                    self._pump1.set_value(False)
-                    self._pump2.set_value(self._discharge_water)
-                if self._mode == True and sum_level2 > 0:
-                    self._pump3.set_value(False)
-                    self._pump4.set_value(self._discharge_water)
-                
                 if self._mode == True:
-                    if sum(self._volume_1_level) == 0 or sum(self._volume_2_level) == 0:
-                        self.notice_charge_water = True
+                    if self._charge_water == True:
+                        if sum_level1 <= 1:
+                            self._pump1.set_value(True)
+                        elif sum_level2 == 3:
+                            self._pump1.set_value(False)
+                            
+                        if sum_level2 <= 1:
+                            self._pump2.set_value(True)
+                        elif sum_level2 == 3:
+                            self._pump2.set_value(False)
                     else:
-                        self.notice_charge_water = False
+                        self._pump1.set_value(False)
+                        self._pump2.set_value(False)
+                    
+                    if self._discharge_water == True:
+                        self._pump3.set_value(sum_level1 > 0)
+                        self._pump4.set_value(sum_level2 > 0)
+                    else:
+                        self._pump3.set_value(False)
+                        self._pump4.set_value(False)
                 else:
-                    if sum(self._volume_1_level) == 0:
-                        self.notice_charge_water = True
-                    else:
-                        self.notice_charge_water = False
+                    self._pump1.set_value(self._charge_water == True and sum_level1 <= 1)
+                    self._pump2.set_value(self._discharge_water == True and sum_level1 > 0)
+                        
                         
                 if self._modul_enable == True:
                     self.setRGB2PWM(self._last_color)
