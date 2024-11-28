@@ -28,7 +28,7 @@ from utime import sleep_ms, ticks_ms
 
 class ButtonIfaceThread():
     __rgb_data = {
-        'orange': [245, 152, 66],
+        'orange': [255, 255, 128],
         'yellow': [255, 255, 0],
         'red': [255, 0, 0],
         'blue': [0, 0, 255],
@@ -77,6 +77,7 @@ class ButtonIfaceThread():
     _charge_water: bool = False
     _discharge_water: bool = False
     _last_color = []
+    _last_color_name: str = "orange"
     _mode = False
     DEBOUNCE_TIME = 500
     LEVEL_DEBOUNCE_TIME = 10000
@@ -87,7 +88,7 @@ class ButtonIfaceThread():
         self._redPWM = PWMModule(pinNumber=self._R_PIN, freq=1000, duty_max=255)
         self._greenPWM = PWMModule(pinNumber=self._G_PIN, freq=1000, duty_max=255)
         self._bluePWM = PWMModule(pinNumber=self._B_PIN, freq=1000, duty_max=255) # led uchun chastota 1000 bo'lishi kerak
-        self._coolerPWM = PWMModule(pinNumber=self._COOL_PIN, freq=50, duty_max=6) # matorlar uchun chastota 50 ham bo'ladi
+        self._coolerPWM = PWMModule(pinNumber=self._COOL_PIN, freq=50, duty_max=12) # matorlar uchun chastota 50 ham bo'ladi
         
         # Diskret chiquvchi pinlar
         self._buzzer = GPIOModule(pinNumber=self._BUZZ_PIN)
@@ -107,7 +108,7 @@ class ButtonIfaceThread():
         self._brightness = 50
         self._last_color = self.setColorToRGB('orange')
         self._module_enable = False
-        self._cooler_speed = 3
+        self._cooler_speed = 7
         self.running = True
         
         # Suv bachoklarini o'lchab turish uchun interrupt pinlar
@@ -157,30 +158,38 @@ class ButtonIfaceThread():
                     check_pin = True
             self.buttons_state[pin] = [pin.value(), ticks_ms()] #last changed time
         if check_pin == True:
-            asyncio.run(self.buzzerBeep(100))
+            asyncio.run(self.buzzerBeep(200))
             if pin == self.btnFlame:
                 self._cooler_speed += 1
+                if self._cooler_speed == 1:
+                    self._cooler_speed = 7
                 print("Cooler Speed:", self._cooler_speed)
-                if self._cooler_speed > 6:
-                    self._cooler_speed = 1
+                if self._cooler_speed > 12:
+                    self._cooler_speed = 0
                     
             elif pin == self.btnLed:
                 self._change_color += 1
                 if self._change_color > self._LEN_COLOR:
                     self._change_color = 0
-                self._last_color = self.setColorToRGB(self.__rgb_colors[self._change_color])
+                self._last_color_name = self.__rgb_colors[self._change_color]
+                print('Change color to', self._last_color_name)
+                self._last_color = self.setColorToRGB(self._last_color_name)
                     
             elif pin == self.btnPower:
                 self._modul_enable = not self._modul_enable
-                self._start.set_value(self._modul_enable)
+                self.start(self._modul_enable)
                 print('Power enable:', self._modul_enable)
                 
             elif pin == self.btnWtrIn:
                 self._charge_water = not self._charge_water
+                if self._charge_water == True:
+                    self._discharge_water = False
                 print("Charge water:", self._charge_water)
                 
             elif pin == self.btnWtrOut:
                 self._discharge_water = not self._discharge_water
+                if self._discharge_water == True:
+                    self._charge_water =  False
                 print("Discharge water:", self._discharge_water)
             
             elif pin == self.btnMode:
@@ -190,17 +199,28 @@ class ButtonIfaceThread():
             else:
                 pass
         
+    def chargeWater(self, charge: bool|None) -> bool:
+        if charge == None:
+            return self._charge_water
+        self._charge_water = charge
+        return charge
+    
+    def disChargeWater(self, disCharge: bool|None) -> bool:
+        if disCharge == None:
+            return self._discharge_water
+        self._discharge_water = disCharge
+        return disCharge
+    
+    def pumpState(self) -> list[bool]:
+        return [self._pump1.get_value(), self._pump2.get_value(), self._pump3.get_value(), self._pump4.get_value()]
+
     def coolerSpeed(self, speed: int | None = None) -> int:
         print('Set fan speed:', speed)
         if speed == None:
             return self._cooler_speed
         else:
             self._cooler_speed = speed
-            if self._modul_enable == True:
-                self._coolerPWM.set_pwm(speed)
-            else:
-                self._coolerPWM.set_pwm(0)
-            return speed
+            return self._cooler_speed
         
     def coolerSpeedInc(self) -> None:
         self._cooler_speed += 1
@@ -235,7 +255,7 @@ class ButtonIfaceThread():
         else:
             print('Power enable:', state)
             self._modul_enable = state
-            self._start.set_value(state)
+            self._start.set_value(self._modul_enable)
             if state == True:
                 self._dfplayer.play(folder = 1, file = 1) # Music start
             else:
@@ -243,9 +263,12 @@ class ButtonIfaceThread():
             return self._modul_enable
 
             
-    def setColorToRGB(self, color: str) -> None:
+    def setColorToRGB(self, color: str | None) -> None:
         try:
+            if color == None:
+                return self._last_color_name
             print('Change color:', color)
+            self._last_color_name = color
             (r, g, b) = self.__rgb_data[color]
             self._last_color = [r, g, b]
             return [r, g, b]
@@ -265,8 +288,10 @@ class ButtonIfaceThread():
 
         
     async def buzzerBeep(self, delay: int):
+        print("Beep active!")
         self._buzzer.set_value(1)
         sleep(delay/1000)
+        print("Beep inactive!")
         self._buzzer.set_value(0)
     
     def run(self):
@@ -285,34 +310,36 @@ class ButtonIfaceThread():
                 self._volume_2_level = [not x for x in self._volume_2_level]
                 sum_level1 = sum(self._volume_1_level)
                 sum_level2 = sum(self._volume_2_level)
-                
-                if self._mode == True:
-                    if self._charge_water == True:
-                        if sum_level1 <= 1:
-                            self._pump1.set_value(True)
-                        elif sum_level2 == 3:
-                            self._pump1.set_value(False)
-                            
-                        if sum_level2 <= 1:
-                            self._pump2.set_value(True)
-                        elif sum_level2 == 3:
-                            self._pump2.set_value(False)
-                    else:
-                        self._pump1.set_value(False)
-                        self._pump2.set_value(False)
-                    
-                    if self._discharge_water == True:
-                        self._pump3.set_value(sum_level1 > 0)
-                        self._pump4.set_value(sum_level2 > 0)
-                    else:
-                        self._pump3.set_value(False)
-                        self._pump4.set_value(False)
-                else:
-                    self._pump1.set_value(self._charge_water == True and sum_level1 <= 1)
-                    self._pump2.set_value(self._discharge_water == True and sum_level1 > 0)
-                        
-                        
+                if sum_level1 == 0 and sum_level2 == 0:
+                    self.notice_charge_water = True
+                    self._discharge_water = False
+                if sum_level1 == 3 and sum_level2 == 3:
+                    self._charge_water = False
+                self._start.set_value(self._modul_enable)
                 if self._modul_enable == True:
+                    if self._mode == True:
+                        if self._charge_water == True:
+                            if sum_level1 <= 1:
+                                self._pump1.set_value(True)
+                            elif sum_level2 == 3:
+                                self._pump1.set_value(False)
+                            if sum_level2 <= 1:
+                                self._pump2.set_value(True)
+                            elif sum_level2 == 3:
+                                self._pump2.set_value(False)
+                        else:
+                            self._pump1.set_value(False)
+                            self._pump2.set_value(False)
+                        
+                        if self._discharge_water == True:
+                            self._pump3.set_value(sum_level1 > 0)
+                            self._pump4.set_value(sum_level2 > 0)
+                        else:
+                            self._pump3.set_value(False)
+                            self._pump4.set_value(False)
+                    else:
+                        self._pump1.set_value(self._charge_water == True and sum_level1 <= 1)
+                        self._pump2.set_value(self._discharge_water == True and sum_level1 > 0)
                     self.setRGB2PWM(self._last_color)
                     self._coolerPWM.set_pwm(self._cooler_speed)
                     if self.notice_charge_water:

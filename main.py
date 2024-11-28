@@ -11,7 +11,16 @@ Response.default_content_type = 'text/html'
 
 @app.route('/', methods=['GET'])
 async def index(request):
-    return render_template('index.html', work=appIFace.start())
+    data: dict = {
+        'work': appIFace.start(),
+        'cooler': appIFace.coolerSpeed(),
+        'brightness': appIFace.brighness(),
+        'volume': appIFace.volume(),
+        'charge': appIFace.chargeWater(),
+        'discharge': appIFace.disChargeWater(),
+        'pumps:': appIFace.pumpState()
+    }
+    return render_template('index.html', data = data)
 
 @app.route('/yellow')
 async def toggle_yellow(request):
