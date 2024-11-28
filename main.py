@@ -15,6 +15,7 @@ async def index(request):
         'work': appIFace.start(),
         'cooler': appIFace.coolerSpeed(),
         'brightness': appIFace.brighness(),
+        'brightness': appIFace.setColorToRGB(),
         'volume': appIFace.volume(),
         'charge': appIFace.chargeWater(),
         'discharge': appIFace.disChargeWater(),
