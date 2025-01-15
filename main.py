@@ -18,8 +18,8 @@ async def index(request):
         'color': appIFace.setColorToRGB(),
         'volume': appIFace.volume(),
         'charge': appIFace.chargeWater(),
-        'discharge': appIFace.disChargeWater(),
-        'pumps:': appIFace.pumpState()
+        'pumps': appIFace.pumpState(),
+        'discharge': appIFace.disChargeWater()
     }
     return render_template('index.html', data = data)
 
@@ -60,7 +60,6 @@ async def toggle_power(request):
 @app.route('/cooler', methods=['GET'])
 async def set_cooler(request):
     pwm_val = int(request.args['value'])
-#     appIFace.coolerSpeed(pwm_val)
     appIFace.coolerSpeedInc()
     return "OK"
 

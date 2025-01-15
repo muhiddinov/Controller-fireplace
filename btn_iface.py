@@ -5,7 +5,6 @@ from machine import Pin
 import _thread
 from dfplayer import DFPlayer
 from utime import sleep_ms, ticks_ms
-#from ButtonDebounce import Debounce
 
 """ SD media card tree
 .
@@ -92,6 +91,7 @@ class ButtonIfaceThread():
         
         # Diskret chiquvchi pinlar
         self._buzzer = GPIOModule(pinNumber=self._BUZZ_PIN)
+        self._buzzer.set_value(0)
         self._pump1 = GPIOModule(pinNumber=self._PMP_PIN1)
         self._pump2 = GPIOModule(pinNumber=self._PMP_PIN2)
         self._pump3 = GPIOModule(pinNumber=self._PMP_PIN3)
@@ -157,12 +157,13 @@ class ButtonIfaceThread():
                     check_pin = True
             self.buttons_state[pin] = [pin.value(), ticks_ms()] # last changed time
         if check_pin == True:
+            # knopkalar bosilganda buzzer 200ms tovush chiqaradi
             asyncio.run(self.buzzerBeep(200))
             if pin == self.btnFlame:
                 self._cooler_speed += 1
                 if self._cooler_speed == 1:
                     self._cooler_speed = 7
-                print("Cooler Speed:", self._cooler_speed)
+                #print("Cooler Speed:", self._cooler_speed)
                 if self._cooler_speed > 12:
                     self._cooler_speed = 0
             elif pin == self.btnLed:
@@ -170,26 +171,27 @@ class ButtonIfaceThread():
                 if self._change_color > self._LEN_COLOR:
                     self._change_color = 0
                 self._last_color_name = self.__rgb_colors[self._change_color]
-                print('Change color to', self._last_color_name)
+                #print('Change color to', self._last_color_name)
                 self._last_color = self.setColorToRGB(self._last_color_name)
             elif pin == self.btnPower:
                 self._modul_enable = not self._modul_enable
                 self.start(self._modul_enable)
-                print('Power enable:', self._modul_enable)
+                #print('Power enable:', self._modul_enable)
             elif pin == self.btnWtrIn:
                 if self._discharge_water == False:
                     self._charge_water = not self._charge_water
                 else:
                     self._charge_water = False
-                print("Charge water:", self._charge_water)
+                #print("Charge water:", self._charge_water)
             elif pin == self.btnWtrOut:
                 if self._charge_water == False:
-                    self._discharge_water = not self._discharge_water
+                    if self._discharge_water == True:
+                        self._discharge_water = False
                 else:
                     self._discharge_water = False
-                print("Discharge water:", self._discharge_water)
+                #print("Discharge water:", self._discharge_water)
             elif pin == self.btnMode:
-                self._mode = pin.value()
+                self._mode = not self._mode
                 print("Mode:", self._mode)
             else:
                 pass
@@ -210,7 +212,7 @@ class ButtonIfaceThread():
         return [self._pump1.get_value(), self._pump2.get_value(), self._pump3.get_value(), self._pump4.get_value()]
 
     def coolerSpeed(self, speed: int | None = None) -> int:
-        print('Set fan speed:', speed)
+        #print('Set fan speed:', speed)
         if speed == None:
             return self._cooler_speed
         else:
@@ -221,12 +223,12 @@ class ButtonIfaceThread():
         self._cooler_speed += 1
         if self._cooler_speed == 1:
             self._cooler_speed = 7
-        print("Cooler Speed:", self._cooler_speed)
+        #print("Cooler Speed:", self._cooler_speed)
         if self._cooler_speed > 12:
             self._cooler_speed = 0
     
     def brighness(self, scale: int | None = None) -> int:
-        print('Set brightness:', scale)
+        #print('Set brightness:', scale)
         if scale == None:
             return self._brightness
         else:
@@ -238,7 +240,7 @@ class ButtonIfaceThread():
             return scale
     
     def volume(self, vol: int | None = None) -> int:
-        print('Set volume:', vol)
+        #print('Set volume:', vol)
         if vol == None:
             return self._volume
         else:
@@ -250,7 +252,7 @@ class ButtonIfaceThread():
         if state == None:
             return self._start.get_value()
         else:
-            print('Power enable:', state)
+            #print('Power enable:', state)
             self._modul_enable = state
             self._start.set_value(self._modul_enable)
             if state == True:
@@ -263,7 +265,7 @@ class ButtonIfaceThread():
         try:
             if color == None:
                 return self._last_color_name
-            print('Change color:', color)
+            #print('Change color:', color)
             self._last_color_name = color
             (r, g, b) = self.__rgb_data[color]
             self._last_color = [r, g, b]
@@ -281,12 +283,12 @@ class ButtonIfaceThread():
         self._greenPWM.set_pwm(g)
         self._bluePWM.set_pwm(b)
         
-    async def buzzerBeep(self, delay: int):
-        print("Beep active!")
+    async def buzzerBeep(self, delay: int = 200):
         self._buzzer.set_value(1)
+        #print("Beep active!")
         sleep(delay/1000)
-        print("Beep inactive!")
         self._buzzer.set_value(0)
+        #print("Beep inactive!")
     
     def run(self):
         _thread.start_new_thread(self.__main__, ())
@@ -296,6 +298,8 @@ class ButtonIfaceThread():
 
     def __main__ (self):
         try:
+            cur_time = ticks_ms()
+            water_out_counter = 0
             while self.running:
                 self._volume_1_level = [self.lvl11.value(), self.lvl12.value(), self.lvl13.value()]
                 self._volume_2_level = [self.lvl21.value(), self.lvl22.value(), self.lvl23.value()]
@@ -303,16 +307,33 @@ class ButtonIfaceThread():
                 self._volume_2_level = [not x for x in self._volume_2_level]
                 sum_level1 = sum(self._volume_1_level)
                 sum_level2 = sum(self._volume_2_level)
+                
+                if ticks_ms() - cur_time > 1000:
+                    print('Charge:', self._charge_water, 'Discharge:', self._discharge_water, sum_level1, sum_level2)
+                    # Har bir sekundda vazifa bajarish mumkin.
+                    if self.btnWtrOut.value() == False:
+                        if self._discharge_water == False:
+                            water_out_counter += 1
+                        print('Pressed', water_out_counter)
+                    else:
+                        water_out_counter = 0
+                    if water_out_counter >= 10:
+                        self._discharge_water = True
+                        water_out_counter = 0
+                        asyncio.run(self.buzzerBeep(1000))
+                    cur_time = ticks_ms()
+                    # asyncio.run(self.buzzerBeep(200))
+                    
                 if sum_level1 >= 3 and sum_level2 >= 3:
                     self._charge_water = False
                 if sum_level1 == 0 and sum_level2 == 0:
+                    self._discharge_water = False
                     if self._modul_enable:
-                        print('Please! Charge volume of water!!!')
+                        #print('Please! Charge volume of water!!!')
                         if self._dfplayer.is_playing() is True:
                             self._dfplayer.stop()
                         self._dfplayer.play(folder = 1, file = 2) # Suv tugaganda to'ldirish uchun ovozli bildirishnoma
                         self._modul_enable = False
-                    self._discharge_water = False
                 if self._mode == True:
                     # agar 1 done suv idishi bilan bo'lsa
                     self._pump1.set_value(self._charge_water)
@@ -320,17 +341,20 @@ class ButtonIfaceThread():
                 else:
                     # aks holatda 2 dona suv idishi bilan
                     self._pump1.set_value(self._charge_water and sum_level1 < 3 and sum_level2 > 0)
-                    self._pump2.set_value(sum_level1 < 3 and self._charge_water)
+                    self._pump2.set_value(sum_level2 < 3 and self._charge_water)
                     self._pump3.set_value(sum_level1 > 0 and self._discharge_water)
                     self._pump4.set_value(sum_level2 > 0 and self._discharge_water)
+                    
                 self._start.set_value(self._modul_enable)
                 if self._modul_enable == True:
+                    self.start(True)
                     self.setRGB2PWM(self._last_color)
                     self._coolerPWM.set_pwm(self._cooler_speed)
                 else:
                     self._coolerPWM.set_pwm(0)
                     self.setRGB2PWM([0, 0, 0])
+                    
                 sleep(0.1)
         except KeyboardInterrupt:
-            print('Exit threading!')
+            #print('Exit threading!')
             running = False

@@ -9,19 +9,6 @@
     <meta http-equiv="refresh" content="5">
 </head>
 <body>
-    <h4>Work: {{ data['work'] }}</h4>
-    <h4>Cooler: {{ data['cooler'] }}</h4>
-    <h4>Color: {{ data['color'] }}</h4>
-    <h4>Brightness: {{ data['brightness'] }}</h4>
-    <h4>Volume: {{ data['volume'] }}</h4>
-    <h4>Charge: {{ data['charge'] }}</h4>
-    <h4>Discharge: {{ data['discharge'] }}</h4>
-    <h4>Pumps state:</h4> 
-        {% for pump in data['pumps'] %}
-            <li>
-                <p> {{ pump }} </p>
-            </li>
-        {% endfor %}
     <div class="wrapper">
         <div class="container">
             <div class="device">
@@ -76,7 +63,19 @@
             </div>
         </div>
     </div>
-    
+    <h4>Work: {{ data['work'] }}</h4>
+    <h4>Cooler: {{ data['cooler'] }}</h4>
+    <h4>Color: {{ data['color'] }}</h4>
+    <h4>Brightness: {{ data['brightness'] }}</h4>
+    <h4>Volume: {{ data['volume'] }}</h4>
+    <h4>Charge: {{ data['charge'] }}</h4>
+    <h4>Discharge: {{ data['discharge'] }}</h4>
+    <h4>Pumps state:</h4> 
+        {% for pump in data['pumps'] %}
+            <li>
+                <p> {{ pump }} </p>
+            </li>
+        {% endfor %}
     <script src="static/js/index.js"></script>
 </body>
 </html>
